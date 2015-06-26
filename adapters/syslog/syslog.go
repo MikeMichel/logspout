@@ -12,7 +12,7 @@ import (
         "text/template"
         "time"
         "strings"
-        "encoding/json"
+//      "encoding/json"
 
         "github.com/gliderlabs/logspout/router"
 )
@@ -54,8 +54,8 @@ func NewSyslogAdapter(route *router.Route) (router.LogAdapter, error) {
 
         format := getopt("SYSLOG_FORMAT", "rfc5424")
         priority := getopt("SYSLOG_PRIORITY", "{{.Priority}}")
-        hostname := getopt("SYSLOG_HOSTNAME", "{{.Container.Config.Hostname}}")
-        envs := getopt("SYSLOG_ENVS", "{{.Config.Env}}")
+        hostname := getopt("SYSLOG_HOSTNAME", "{{.Container.Config.Env}}")
+        envs := getopt("SYSLOG_ENVS", "{{.Container.Config.Env}}")
         elktype := getopt("SYSLOG_ELKTYPE", "mesoscontainer")
         pid := getopt("SYSLOG_PID", "{{.Container.State.Pid}}")
         tag := getopt("SYSLOG_TAG", "{{.ContainerName}}"+route.Options["append_tag"])
@@ -65,22 +65,20 @@ func NewSyslogAdapter(route *router.Route) (router.LogAdapter, error) {
         }
         data := getopt("SYSLOG_DATA", "{{.Data}}")
         // envs := `["SLOPPY_CUSTOMERID=cd_mike","MARATHON_APP_ID=/mike-wp2/frontend/apache"]`
-        fmt.Println(envs)
-        fmt.Println(hostname)
+
         var appname string
         var envdata []string
-        var MarshalErr = json.Unmarshal([]byte(envs), &envdata)
-        if MarshalErr != nil {
-                fmt.Println("Error")
-        }
+
+        ParsedString := strings.Replace(strings.Replace(envs, "[", "", -1), "]", "", -1)
+        envdata = strings.Fields(ParsedString)
+
         var index = GetIndex(envdata, "MARATHON_APP_ID")
-if index != -1 {
-        MarathonApp := strings.Split(envdata[index], "=")
-        appname = (MarathonApp[1])
+        if index != -1 {
+                MarathonApp := strings.Split(envdata[index], "=")
+                appname = (MarathonApp[1])
         } else {
                 appname = "nomarathonapp"
         }
-
 
         var tmplStr string
         switch format {
@@ -89,7 +87,7 @@ if index != -1 {
                         priority, hostname, elktype, appname,  tag, pid, structuredData, data)
         case "rfc3164":
                 tmplStr = fmt.Sprintf("<%s>{{.Timestamp}} %s %s[%s]: %s\n",
-                        priority, hostname, elktype, appname, pid, data)
+                        priority, hostname, elktype,  pid, data)
         default:
                 return nil, errors.New("unsupported syslog format: " + format)
         }
