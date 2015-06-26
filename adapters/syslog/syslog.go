@@ -64,7 +64,6 @@ func NewSyslogAdapter(route *router.Route) (router.LogAdapter, error) {
                 structuredData = route.Options["structured_data"]
         }
         data := getopt("SYSLOG_DATA", "{{.Data}}")
-        // envs := `["SLOPPY_CUSTOMERID=cd_mike","MARATHON_APP_ID=/mike-wp2/frontend/apache"]`
 
         var appname string
         var envdata []string
@@ -77,7 +76,7 @@ func NewSyslogAdapter(route *router.Route) (router.LogAdapter, error) {
                 MarathonApp := strings.Split(envdata[index], "=")
                 appname = (MarathonApp[1])
         } else {
-                appname = "nomarathonapp"
+                appname = "*"+envdata[0]+"*"
         }
 
         var tmplStr string
