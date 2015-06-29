@@ -12,7 +12,6 @@ import (
         "text/template"
         "time"
         "strings"
-//      "encoding/json"
 
         "github.com/gliderlabs/logspout/router"
 )
@@ -21,13 +20,24 @@ var hostname string
 
    func GetIndex(slice []string, value string) int {
            for p, v := range slice {
-                 if (strings.HasPrefix(v, value)) {
-                return p
-        }
+                if (strings.Contains(v, value)) {
+                        return p
+                }
     }
     return -1
 }
 
+func ConvertAppName(envvar []string) string {
+
+        index := GetIndex(envvar, "MARATHON_APP_ID")
+
+        if index != -1 {
+                 MarathonApp := strings.Split(envvar[index], "=")
+                 return (MarathonApp[1])
+        }
+
+        return "noMarathonApp"
+}
 
 func init() {
         hostname, _ = os.Hostname()
@@ -54,8 +64,8 @@ func NewSyslogAdapter(route *router.Route) (router.LogAdapter, error) {
 
         format := getopt("SYSLOG_FORMAT", "rfc5424")
         priority := getopt("SYSLOG_PRIORITY", "{{.Priority}}")
-        hostname := getopt("SYSLOG_HOSTNAME", "{{.Container.Config.Env}}")
-        envs := getopt("SYSLOG_ENVS", "{{.Container.Config.Env}}")
+        hostname := getopt("SYSLOG_HOSTNAME", "{{.Hostname}}")
+        envs := getopt("SYSLOG_ENVS", "{{.ContainerConfigEnv}}")
         elktype := getopt("SYSLOG_ELKTYPE", "mesoscontainer")
         pid := getopt("SYSLOG_PID", "{{.Container.State.Pid}}")
         tag := getopt("SYSLOG_TAG", "{{.ContainerName}}"+route.Options["append_tag"])
@@ -65,25 +75,11 @@ func NewSyslogAdapter(route *router.Route) (router.LogAdapter, error) {
         }
         data := getopt("SYSLOG_DATA", "{{.Data}}")
 
-        var appname string
-        var envdata []string
-
-        ParsedString := strings.Replace(strings.Replace(envs, "[", "", -1), "]", "", -1)
-        envdata = strings.Fields(ParsedString)
-
-        var index = GetIndex(envdata, "MARATHON_APP_ID")
-        if index != -1 {
-                MarathonApp := strings.Split(envdata[index], "=")
-                appname = (MarathonApp[1])
-        } else {
-                appname = "*"+envdata[0]+"*"
-        }
-
         var tmplStr string
         switch format {
         case "rfc5424":
                 tmplStr = fmt.Sprintf("<%s>1 {{.Timestamp}} %s %s %s - [%s] %s %s %s\n",
-                        priority, hostname, elktype, appname,  tag, pid, structuredData, data)
+                        priority, hostname, elktype, envs,  tag, pid, structuredData, data)
         case "rfc3164":
                 tmplStr = fmt.Sprintf("<%s>{{.Timestamp}} %s %s[%s]: %s\n",
                         priority, hostname, elktype,  pid, data)
@@ -156,6 +152,11 @@ func (m *SyslogMessage) Hostname() string {
 func (m *SyslogMessage) Timestamp() string {
         return m.Message.Time.Format(time.RFC3339)
 }
+
+func (m *SyslogMessage) ContainerConfigEnv() string {
+        return ConvertAppName(m.Message.Container.Config.Env)
+}
+
 
 func (m *SyslogMessage) ContainerName() string {
         return m.Message.Container.Name[1:]
